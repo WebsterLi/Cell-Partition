@@ -16,6 +16,7 @@ type Cell struct{
 	NetList []int
 }
 var (
+	degree float64
 	cellmap map[int]Cell
 	netslice []Net
 )
@@ -33,14 +34,18 @@ func LinesInFile(fileName string) []string {
 	}
 	return result
 }
-
-func main() {
-	cellmap = make(map[int]Cell)//Initial map
-	// Loop over lines in file.
-	var netid, cellid int
-	for _, line := range LinesInFile(`input_pa1/input_0.dat`) {
+func LinesToCell(lines []string){
+	var (
+		netid, cellid int
+		err error
+	)
+	for iter, line := range lines {
 		netinfo := strings.Fields(line)
-		var err error
+		if iter == 0 {
+			degree, err = strconv.ParseFloat(netinfo[0], 64)
+			if err != nil {fmt.Println(netinfo)}
+			fmt.Println(degree)
+		}
 		for _, word := range netinfo {
 			switch word[0] {
 			case 'n':
@@ -64,4 +69,11 @@ func main() {
 			}
 		}
 	}
+}
+
+func main() {
+	cellmap = make(map[int]Cell)//Initial map
+	// Loop over lines in file.
+	lines := LinesInFile(`input_data/input_0.dat`)
+	LinesToCell(lines)
 }
