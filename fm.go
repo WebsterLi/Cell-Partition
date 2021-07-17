@@ -123,7 +123,6 @@ func InitialBucket(){
 		}
 	}
 	bucketlist = make([][]*Cell, maxgain - mingain +1)
-	fmt.Printf("len=%d cap=%d\n", len(bucketlist), cap(bucketlist))
 	for _, cell := range cellmap {
 		index := cell.gain - mingain
 		bucketlist[index] = append(bucketlist[index], cell)
