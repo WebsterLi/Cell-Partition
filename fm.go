@@ -19,13 +19,13 @@ type Cell struct{
 	NetList []*Net
 }
 var (
-	cellcount int
+	cellcount, maxgain, mingain int
 	degree float64
 	cellmap map[int]*Cell
 	netslice []*Net
-	bucketlist [][]int
 	leftpart []*Cell
 	rightpart []*Cell
+	bucketlist [][]*Cell
 )
 
 func LinesInFile(fileName string) []string {
@@ -83,9 +83,8 @@ func LinesToGraph(lines []string){
 }
 
 func InitialPartition(){
-	var counter int
 	for _, cell := range cellmap{
-		if float64(len(leftpart)+1) <= float64 (cellcount) * (0.5) {
+		if len(leftpart)+1 <= cellcount/2 {
 			leftpart = append(leftpart, cell)
 			cell.leftpart = true //update cell position
 			//update net info 
@@ -100,13 +99,12 @@ func InitialPartition(){
 				net.rightnum ++
 			}
 		}
-		counter++
 	}
 }
 
 func InitialBucket(){
 	//Calculate gain of each cell
-	maxgain := 0
+	maxgain, mingain = 0, 0
 	for _, cell := range cellmap {
 		var cellgain int
 		for _, net := range cell.NetList {
@@ -120,9 +118,16 @@ func InitialBucket(){
 		if cellgain > maxgain {
 			maxgain = cellgain
 		}
+		if cellgain < mingain {
+			mingain = cellgain
+		}
 	}
-	fmt.Println(maxgain)
-	fmt.Printf("len=%d cap=%d %v\n", len(bucketlist), cap(bucketlist), bucketlist)
+	bucketlist = make([][]*Cell, maxgain - mingain +1)
+	fmt.Printf("len=%d cap=%d\n", len(bucketlist), cap(bucketlist))
+	for _, cell := range cellmap {
+		index := cell.gain - mingain
+		bucketlist[index] = append(bucketlist[index], cell)
+	}
 }
 
 func main() {
