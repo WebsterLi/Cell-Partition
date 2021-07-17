@@ -77,20 +77,14 @@ func LinesToCell(lines []string){
 	}
 }
 func InitialPartition(){
-	for i, net := range netslice{
-		if i < len(netslice)/2 {
-			for _, cellid := range net.CellList{
-				if float64(len(leftpart)+len(net.CellList)) < float64 (cellcount) * (1.0 - degree) {
-					leftpart = append(leftpart, cellmap[cellid])
-				} else {
-					rightpart = append(rightpart, cellmap[cellid])
-				}
+	var counter int
+	for _, cell := range cellmap{
+			if float64(len(leftpart)+1) <= float64 (cellcount) * (0.5) {
+				leftpart = append(leftpart, cell)
+			} else {
+				rightpart = append(rightpart, cell)
 			}
-		} else {
-			for _, cellid := range net.CellList{
-				rightpart = append(rightpart, cellmap[cellid])
-			}
-		}
+		counter++
 	}
 	fmt.Println(cellcount)
 	fmt.Println(len(leftpart), len(rightpart))
