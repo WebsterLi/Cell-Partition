@@ -14,9 +14,8 @@ type Net struct{
 	CellList []int
 }
 type Cell struct{
-	name int
-	moved bool
-	leftpart bool
+	name, gain int
+	moved, leftpart bool
 	NetList []int
 }
 var (
@@ -78,26 +77,23 @@ func LinesToCell(lines []string){
 		}
 	}
 }
+
 func InitialPartition(){
 	var counter int
 	for _, cell := range cellmap{
 		if float64(len(leftpart)+1) <= float64 (cellcount) * (0.5) {
 			leftpart = append(leftpart, cell)
+			cell.leftpart = true //update cell position
+			//update net info 
 			for _, netid := range cell.NetList{
-				if netid-1 < len(netslice) {
-					netslice[netid-1].leftnum ++// netindex = netid - 1
-				} else {
-					fmt.Println(len(netslice))
-				}
+				netslice[netid-1].leftnum ++// netindex = netid - 1
 			}
 		} else {
 			rightpart = append(rightpart, cell)
+			cell.leftpart = false //update cell position
+			//update net info 
 			for _, netid := range cell.NetList{
-				if netid-1 < len(netslice) {
-					netslice[netid-1].rightnum ++// netindex = netid - 1
-				} else {
-					fmt.Println(len(netslice))
-				}
+				netslice[netid-1].rightnum ++// netindex = netid - 1
 			}
 		}
 		counter++
@@ -105,7 +101,21 @@ func InitialPartition(){
 }
 
 func InitialBucket(){
-
+	//Calculate gain of each cell
+	var maxgain int
+	for _, cell := range cellmap {
+		var cellgain int
+		for _, netid := range cell.NetList {
+			if cell.leftpart {
+				cellgain += netslice[netid-1].rightnum - netslice[netid-1].leftnum
+			} else {
+				cellgain += netslice[netid-1].leftnum - netslice[netid-1].rightnum
+			}
+		}
+		cell.gain = cellgain
+		if cellgain > maxgain { maxgain = cellgain }
+	}
+	fmt.Println(maxgain)
 }
 
 func main() {
