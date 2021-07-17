@@ -9,10 +9,14 @@ import (
 )
 type Net struct{
 	name int
+	leftnum int
+	rightnum int
 	CellList []int
 }
 type Cell struct{
 	name int
+	moved bool
+	leftpart bool
 	NetList []int
 }
 var (
@@ -49,15 +53,13 @@ func LinesToCell(lines []string){
 		if iter == 0 {
 			degree, err = strconv.ParseFloat(netinfo[0], 64)
 			if err != nil {fmt.Println(netinfo)}
-			fmt.Println(degree)
 		}
 		for _, word := range netinfo {
 			switch word[0] {
-			case 'n':
-				netid, err = strconv.Atoi(strings.Trim(word,"n"))
-				if err != nil {fmt.Println(word)}
+			case 'N':
 				var clist []int
-				netslice = append(netslice, Net{netid,clist})
+				netslice = append(netslice, Net{name:netid,CellList:clist})
+				netid++
 			case 'c':
 				cellid, err = strconv.Atoi(strings.Trim(word,"c"))
 				if err != nil {fmt.Println(word)}
@@ -67,7 +69,7 @@ func LinesToCell(lines []string){
 				} else {
 					//Initial a cell
 					nlist := []int{netid}
-					cellmap[cellid] = &Cell{cellid, nlist}
+					cellmap[cellid] = &Cell{name:cellid, NetList:nlist}
 					cellcount++
 				}
 				netslice[len(netslice)-1].CellList = append(netslice[len(netslice)-1].CellList, cellid)
@@ -79,15 +81,31 @@ func LinesToCell(lines []string){
 func InitialPartition(){
 	var counter int
 	for _, cell := range cellmap{
-			if float64(len(leftpart)+1) <= float64 (cellcount) * (0.5) {
-				leftpart = append(leftpart, cell)
-			} else {
-				rightpart = append(rightpart, cell)
+		if float64(len(leftpart)+1) <= float64 (cellcount) * (0.5) {
+			leftpart = append(leftpart, cell)
+			for _, netid := range cell.NetList{
+				if netid-1 < len(netslice) {
+					netslice[netid-1].leftnum ++// netindex = netid - 1
+				} else {
+					fmt.Println(len(netslice))
+				}
 			}
+		} else {
+			rightpart = append(rightpart, cell)
+			for _, netid := range cell.NetList{
+				if netid-1 < len(netslice) {
+					netslice[netid-1].rightnum ++// netindex = netid - 1
+				} else {
+					fmt.Println(len(netslice))
+				}
+			}
+		}
 		counter++
 	}
-	fmt.Println(cellcount)
-	fmt.Println(len(leftpart), len(rightpart))
+}
+
+func InitialBucket(){
+
 }
 
 func main() {
@@ -96,4 +114,5 @@ func main() {
 	lines := LinesInFile(`input_data/input_0.dat`)
 	LinesToCell(lines)
 	InitialPartition()
+	InitialBucket()
 }
