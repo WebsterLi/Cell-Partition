@@ -80,7 +80,11 @@ func InitialPartition(){
 	for i, net := range netslice{
 		if i < len(netslice)/2 {
 			for _, cellid := range net.CellList{
-				leftpart = append(leftpart, cellmap[cellid])
+				if float64(len(leftpart)+len(net.CellList)) < float64 (cellcount) * (1.0 - degree) {
+					leftpart = append(leftpart, cellmap[cellid])
+				} else {
+					rightpart = append(rightpart, cellmap[cellid])
+				}
 			}
 		} else {
 			for _, cellid := range net.CellList{
@@ -88,6 +92,7 @@ func InitialPartition(){
 			}
 		}
 	}
+	fmt.Println(cellcount)
 	fmt.Println(len(leftpart), len(rightpart))
 }
 
