@@ -16,8 +16,13 @@ type Cell struct{
 	NetList []int
 }
 var (
-	cellmap map[int]Cell
+	cellcount int
+	degree float64
+	cellmap map[int]*Cell
 	netslice []Net
+	bucketlist [][]int
+	leftpart []*Cell
+	rightpart []*Cell
 )
 
 func LinesInFile(fileName string) []string {
@@ -34,13 +39,18 @@ func LinesInFile(fileName string) []string {
 	return result
 }
 
-func main() {
-	cellmap = make(map[int]Cell)//Initial map
-	// Loop over lines in file.
-	var netid, cellid int
-	for _, line := range LinesInFile(`input_pa1/input_0.dat`) {
+func LinesToCell(lines []string){
+	var (
+		netid, cellid int
+		err error
+	)
+	for iter, line := range lines {
 		netinfo := strings.Fields(line)
-		var err error
+		if iter == 0 {
+			degree, err = strconv.ParseFloat(netinfo[0], 64)
+			if err != nil {fmt.Println(netinfo)}
+			fmt.Println(degree)
+		}
 		for _, word := range netinfo {
 			switch word[0] {
 			case 'n':
@@ -57,11 +67,34 @@ func main() {
 				} else {
 					//Initial a cell
 					nlist := []int{netid}
-					cellmap[cellid] = Cell{cellid, nlist}
+					cellmap[cellid] = &Cell{cellid, nlist}
+					cellcount++
 				}
 				netslice[len(netslice)-1].CellList = append(netslice[len(netslice)-1].CellList, cellid)
 			default :
 			}
 		}
 	}
+}
+func InitialPartition(){
+	for i, net := range netslice{
+		if i < len(netslice)/2 {
+			for _, cellid := range net.CellList{
+				leftpart = append(leftpart, cellmap[cellid])
+			}
+		} else {
+			for _, cellid := range net.CellList{
+				rightpart = append(rightpart, cellmap[cellid])
+			}
+		}
+	}
+	fmt.Println(len(leftpart), len(rightpart))
+}
+
+func main() {
+	cellmap = make(map[int]*Cell)//Initial map
+	// Loop over lines in file.
+	lines := LinesInFile(`input_data/input_0.dat`)
+	LinesToCell(lines)
+	InitialPartition()
 }
