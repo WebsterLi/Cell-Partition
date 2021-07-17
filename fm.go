@@ -9,20 +9,23 @@ import (
 )
 type Net struct{
 	name int
-	CellList []int
+	leftnum int
+	rightnum int
+	CellList []*Cell
 }
 type Cell struct{
-	name int
-	NetList []int
+	name, gain int
+	moved, leftpart bool
+	NetList []*Net
 }
 var (
-	cellcount int
+	cellcount, maxgain, mingain int
 	degree float64
 	cellmap map[int]*Cell
-	netslice []Net
-	bucketlist [][]int
+	netslice []*Net
 	leftpart []*Cell
 	rightpart []*Cell
+	bucketlist [][]*Cell
 )
 
 func LinesInFile(fileName string) []string {
@@ -39,61 +42,99 @@ func LinesInFile(fileName string) []string {
 	return result
 }
 
-func LinesToCell(lines []string){
+func LinesToGraph(lines []string){
 	var (
 		netid, cellid int
 		err error
+		cellptr *Cell
+		netptr *Net
 	)
 	for iter, line := range lines {
 		netinfo := strings.Fields(line)
 		if iter == 0 {
 			degree, err = strconv.ParseFloat(netinfo[0], 64)
 			if err != nil {fmt.Println(netinfo)}
-			fmt.Println(degree)
 		}
 		for _, word := range netinfo {
 			switch word[0] {
-			case 'n':
-				netid, err = strconv.Atoi(strings.Trim(word,"n"))
-				if err != nil {fmt.Println(word)}
-				var clist []int
-				netslice = append(netslice, Net{netid,clist})
+			case 'N':
+				var clist []*Cell
+				netptr = &Net{name:netid, CellList:clist}
+				netslice = append(netslice, netptr)
+				netid++
 			case 'c':
 				cellid, err = strconv.Atoi(strings.Trim(word,"c"))
 				if err != nil {fmt.Println(word)}
 				if curcell, ok := cellmap[cellid]; ok {
-					curcell.NetList = append(curcell.NetList, netid)
+					curcell.NetList = append(curcell.NetList, netptr)
 					cellmap[cellid] = curcell
 				} else {
 					//Initial a cell
-					nlist := []int{netid}
-					cellmap[cellid] = &Cell{cellid, nlist}
+					nlist := []*Net{netptr}
+					cellptr = &Cell{name:cellid, NetList:nlist}
+					cellmap[cellid] = cellptr
 					cellcount++
 				}
-				netslice[len(netslice)-1].CellList = append(netslice[len(netslice)-1].CellList, cellid)
+				netslice[len(netslice)-1].CellList = append(netslice[len(netslice)-1].CellList, cellptr)
 			default :
 			}
 		}
 	}
 }
+
 func InitialPartition(){
-	var counter int
 	for _, cell := range cellmap{
-			if float64(len(leftpart)+1) <= float64 (cellcount) * (0.5) {
-				leftpart = append(leftpart, cell)
-			} else {
-				rightpart = append(rightpart, cell)
+		if len(leftpart)+1 <= cellcount/2 {
+			leftpart = append(leftpart, cell)
+			cell.leftpart = true //update cell position
+			//update net info 
+			for _, net := range cell.NetList{
+				net.leftnum ++
 			}
-		counter++
+		} else {
+			rightpart = append(rightpart, cell)
+			cell.leftpart = false //update cell position
+			//update net info 
+			for _, net := range cell.NetList{
+				net.rightnum ++
+			}
+		}
 	}
-	fmt.Println(cellcount)
-	fmt.Println(len(leftpart), len(rightpart))
+}
+
+func InitialBucket(){
+	//Calculate gain of each cell
+	maxgain, mingain = 0, 0
+	for _, cell := range cellmap {
+		var cellgain int
+		for _, net := range cell.NetList {
+			if cell.leftpart {
+				cellgain += net.rightnum - net.leftnum
+			} else {
+				cellgain += net.leftnum - net.rightnum
+			}
+		}
+		cell.gain = cellgain
+		if cellgain > maxgain {
+			maxgain = cellgain
+		}
+		if cellgain < mingain {
+			mingain = cellgain
+		}
+	}
+	bucketlist = make([][]*Cell, maxgain - mingain +1)
+	fmt.Printf("len=%d cap=%d\n", len(bucketlist), cap(bucketlist))
+	for _, cell := range cellmap {
+		index := cell.gain - mingain
+		bucketlist[index] = append(bucketlist[index], cell)
+	}
 }
 
 func main() {
 	cellmap = make(map[int]*Cell)//Initial map
 	// Loop over lines in file.
 	lines := LinesInFile(`input_data/input_0.dat`)
-	LinesToCell(lines)
+	LinesToGraph(lines)
 	InitialPartition()
+	InitialBucket()
 }
