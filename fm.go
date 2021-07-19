@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"strconv"
+//	"sort"
 	"os"
 )
 type Net struct{
@@ -83,6 +84,30 @@ func LinesToGraph(lines []string){
 }
 
 func InitialPartition(){
+	/*var cell_by_netnum []*Cell
+	for _, cell := range cellmap {
+		cell_by_netnum =  append(cell_by_netnum, cell)
+	}
+	sort.Slice(cell_by_netnum, func(i, j int) bool {
+		return len(cell_by_netnum[i].NetList) < len(cell_by_netnum[j].NetList)
+	})
+	for _, cell := range cell_by_netnum {
+		if len(leftpart)+1 <= cellcount/2 {
+			leftpart = append(leftpart, cell)
+			cell.leftpart = true //update cell position
+			//update net info 
+			for _, net := range cell.NetList{
+				net.leftnum ++
+			}
+		} else {
+			rightpart = append(rightpart, cell)
+			cell.leftpart = false //update cell position
+			//update net info 
+			for _, net := range cell.NetList{
+				net.rightnum ++
+			}
+		}
+	}*/
 	for _, cell := range cellmap{
 		if len(leftpart)+1 <= cellcount/2 {
 			leftpart = append(leftpart, cell)
