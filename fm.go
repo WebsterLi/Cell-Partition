@@ -104,14 +104,17 @@ func InitialPartition(){
 
 func InitialBucket(){
 	//Calculate gain of each cell
+	//TODO fix gain calculate method
 	maxgain, mingain = 0, 0
 	for _, cell := range cellmap {
 		var cellgain int
 		for _, net := range cell.NetList {
 			if cell.leftpart {
-				cellgain += net.rightnum - net.leftnum
+				if net.rightnum == 0 { cellgain-- }
+				if net.leftnum == 1 { cellgain++ }
 			} else {
-				cellgain += net.leftnum - net.rightnum
+				if net.leftnum == 0 { cellgain-- }
+				if net.rightnum == 1 { cellgain++ }
 			}
 		}
 		cell.gain = cellgain
@@ -127,6 +130,7 @@ func InitialBucket(){
 		index := cell.gain - mingain
 		bucketlist[index] = append(bucketlist[index], cell)
 	}
+	fmt.Println(maxgain, mingain)
 }
 
 func main() {
