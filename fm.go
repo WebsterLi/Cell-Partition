@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"strconv"
-//	"sort"
+	"sort"
 	"os"
 )
 type Net struct{
@@ -18,6 +18,7 @@ type Cell struct{
 	name, gain int
 	moved, leftpart bool
 	NetList []*Net
+	prevcell, nextcell, endcell *Cell
 }
 var (
 	cellcount, maxgain, mingain int
@@ -26,7 +27,7 @@ var (
 	netslice []*Net
 	leftpart []*Cell
 	rightpart []*Cell
-	bucketlist [][]*Cell
+	bucketroot *Cell
 )
 
 func LinesInFile(fileName string) []string {
@@ -84,7 +85,7 @@ func LinesToGraph(lines []string){
 }
 
 func InitialPartition(){
-	/*var cell_by_netnum []*Cell
+	var cell_by_netnum []*Cell
 	for _, cell := range cellmap {
 		cell_by_netnum =  append(cell_by_netnum, cell)
 	}
@@ -107,30 +108,15 @@ func InitialPartition(){
 				net.rightnum ++
 			}
 		}
-	}*/
-	for _, cell := range cellmap{
-		if len(leftpart)+1 <= cellcount/2 {
-			leftpart = append(leftpart, cell)
-			cell.leftpart = true //update cell position
-			//update net info 
-			for _, net := range cell.NetList{
-				net.leftnum ++
-			}
-		} else {
-			rightpart = append(rightpart, cell)
-			cell.leftpart = false //update cell position
-			//update net info 
-			for _, net := range cell.NetList{
-				net.rightnum ++
-			}
-		}
 	}
 }
 
 func InitialBucket(){
 	//Calculate gain of each cell
-	//TODO fix gain calculate method
+	//gain calculate
 	maxgain, mingain = 0, 0
+	gainmap := make(map[int]*Cell)//Initial map
+
 	for _, cell := range cellmap {
 		var cellgain int
 		for _, net := range cell.NetList {
@@ -143,6 +129,17 @@ func InitialBucket(){
 			}
 		}
 		cell.gain = cellgain
+		//Initial gain(bucket) list
+		if root, ok := gainmap[cellgain]; ok {
+			root.endcell.nextcell = cell
+			cell.prevcell = root.endcell
+			root.endcell = cell
+		} else {
+			//Initial a cell
+			gainmap[cellgain] = cell
+			cell.endcell = cell
+		}
+
 		if cellgain > maxgain {
 			maxgain = cellgain
 		}
@@ -150,12 +147,18 @@ func InitialBucket(){
 			mingain = cellgain
 		}
 	}
-	bucketlist = make([][]*Cell, maxgain - mingain +1)
-	for _, cell := range cellmap {
-		index := cell.gain - mingain
-		bucketlist[index] = append(bucketlist[index], cell)
+	for i:= mingain; i<=maxgain; i++ {
+		if gcell, ok := gainmap[i]; ok {
+			count := 1
+			fmt.Println("")
+			fmt.Printf("Gain %d : ", i)
+			for gcell.nextcell != nil {
+				count++
+				gcell = gcell.nextcell
+			}
+			fmt.Println(count)
+		}
 	}
-	fmt.Println(maxgain, mingain)
 }
 
 func main() {
