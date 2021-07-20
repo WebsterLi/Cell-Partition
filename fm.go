@@ -211,8 +211,9 @@ func AppendToBucket(target *Cell) {
 }
 
 func UpdateGain(target *Cell) {
-	cellgain := 0
+	var cellgain int
 	if target.moved {
+		cellgain = 0
 		for _, net := range target.NetList {
 			if !target.leftpart {
 				net.rightnum++
@@ -235,6 +236,7 @@ func UpdateGain(target *Cell) {
 			}
 		}
 	} else {
+		cellgain = 0
 		for _, net := range target.NetList {
 			//no cell on the other side -> gain += -1
 			//one self on this side -> gain += 1
@@ -252,14 +254,21 @@ func UpdateGain(target *Cell) {
 			AppendToBucket(target)
 		}
 	}
+	//update bound
+	if cellgain > maxgain {
+		maxgain = cellgain
+	}
+	if cellgain < mingain {
+		mingain = cellgain
+	}
 }
 
 func MoveCell(target *Cell) {
 	RemoveFromBucket(target)//Need to be done before update gain!
-	//TODO
+	//move cell to other side.
 	target.leftpart = !target.leftpart
 	target.moved = true
-	//TODO
+	//calculate gain.
 	UpdateGain(target)
 	//Target cell don't need to append back to bucket? TODO
 }
