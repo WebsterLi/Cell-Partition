@@ -196,6 +196,17 @@ func RemoveFromBucket(target *Cell) {
 	target.prevcell = nil
 	return
 }
+func AppendToBucket(target *Cell) {
+	index := target.gain
+	if root, ok := gainmap[index]; ok {
+		root.endcell.nextcell = target
+		target.prevcell = root.endcell
+		root.endcell = target
+	} else {
+		gainmap[index] = target
+		target.endcell = target
+	}
+}
 func main() {
 	cellmap = make(map[int]*Cell)//Initial map
 	// Loop over lines in file.
