@@ -155,7 +155,8 @@ func InitialBucket(){
 			cell.endcell = cell
 		}
 	}
-	//print gain map mamber
+	/*
+	//print gain map member
 	for i := mingain; i <= maxgain; i++ {
 		if gcell, ok := gainmap[i]; ok {
 			count := 1
@@ -168,6 +169,7 @@ func InitialBucket(){
 			fmt.Println(count)
 		}
 	}
+	*/
 }
 
 func RemoveFromBucket(target *Cell) {
