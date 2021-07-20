@@ -155,7 +155,7 @@ func InitialBucket(){
 		}
 	}
 	//print gain map mamber
-	for i:= mingain; i<=maxgain; i++ {
+	for i := mingain; i <= maxgain; i++ {
 		if gcell, ok := gainmap[i]; ok {
 			count := 1
 			fmt.Println("")
@@ -169,6 +169,33 @@ func InitialBucket(){
 	}
 }
 
+func RemoveFromBucket(target *Cell) {
+	index := target.gain
+	//Target cell is the root of bucket
+	if target.prevcell == nil {
+		//Only member in this gain bucket.
+		if target.nextcell == nil {
+			target.endcell = nil
+			delete (gainmap,target.gain)
+			return
+		}
+		gainmap[index] = target.nextcell
+		//next cell get endcell & delete prevcell
+		target.nextcell.endcell = target.endcell
+		target.nextcell.prevcell = nil
+		//delete endcell & nextcell
+		target.endcell = nil
+		target.nextcell = nil
+		return
+	}
+	//link nextcell and prevcell
+	target.prevcell.nextcell = target.nextcell
+	target.nextcell.prevcell = target.prevcell
+	//delete self prevcell nextcell link
+	target.nextcell = nil
+	target.prevcell = nil
+	return
+}
 func main() {
 	cellmap = make(map[int]*Cell)//Initial map
 	// Loop over lines in file.
