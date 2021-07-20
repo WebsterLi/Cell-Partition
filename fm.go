@@ -23,11 +23,11 @@ type Cell struct{
 var (
 	cellcount, maxgain, mingain int
 	degree float64
-	cellmap map[int]*Cell
 	netslice []*Net
 	leftpart []*Cell
 	rightpart []*Cell
-	bucketroot *Cell
+	cellmap map[int]*Cell
+	gainmap map[int]*Cell//bucketlist
 )
 
 func LinesInFile(fileName string) []string {
@@ -111,11 +111,10 @@ func InitialPartition(){
 	}
 }
 
-func InitialBucket(){
+func InitialGain(){
 	//Calculate gain of each cell
 	//gain calculate
 	maxgain, mingain = 0, 0
-	gainmap := make(map[int]*Cell)//Initial map
 
 	for _, cell := range cellmap {
 		var cellgain int
@@ -129,6 +128,22 @@ func InitialBucket(){
 			}
 		}
 		cell.gain = cellgain
+		//update bound
+		if cellgain > maxgain {
+			maxgain = cellgain
+		}
+		if cellgain < mingain {
+			mingain = cellgain
+		}
+	}
+}
+
+func InitialBucket(){
+	//Update cell gain of initial partition
+	InitialGain()
+	gainmap = make(map[int]*Cell)//Initial map
+	for _, cell := range cellmap {
+		cellgain := cell.gain
 		//Initial gain(bucket) list
 		if root, ok := gainmap[cellgain]; ok {
 			root.endcell.nextcell = cell
@@ -138,13 +153,6 @@ func InitialBucket(){
 			//Initial a cell
 			gainmap[cellgain] = cell
 			cell.endcell = cell
-		}
-
-		if cellgain > maxgain {
-			maxgain = cellgain
-		}
-		if cellgain < mingain {
-			mingain = cellgain
 		}
 	}
 	for i:= mingain; i<=maxgain; i++ {
