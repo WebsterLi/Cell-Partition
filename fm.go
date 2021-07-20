@@ -207,6 +207,18 @@ func AppendToBucket(target *Cell) {
 		target.endcell = target
 	}
 }
+func UpdateGain(target *Cell) {
+
+}
+func MoveCell(target *Cell) {
+	RemoveFromBucket(target)
+	//TODO
+	target.leftpart = !target.leftpart
+	target.moved = true
+	//TODO
+	UpdateGain(target)
+}
+
 func main() {
 	cellmap = make(map[int]*Cell)//Initial map
 	// Loop over lines in file.
