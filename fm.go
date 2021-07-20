@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"strconv"
+	"sort"
 	"os"
 )
 type Net struct{
@@ -17,15 +18,16 @@ type Cell struct{
 	name, gain int
 	moved, leftpart bool
 	NetList []*Net
+	prevcell, nextcell, endcell *Cell
 }
 var (
 	cellcount, maxgain, mingain int
 	degree float64
-	cellmap map[int]*Cell
 	netslice []*Net
 	leftpart []*Cell
 	rightpart []*Cell
-	bucketlist [][]*Cell
+	cellmap map[int]*Cell
+	gainmap map[int]*Cell//bucketlist
 )
 
 func LinesInFile(fileName string) []string {
@@ -59,7 +61,7 @@ func LinesToGraph(lines []string){
 			switch word[0] {
 			case 'N':
 				var clist []*Cell
-				netptr = &Net{name:netid, CellList:clist}
+				netptr = &Net{name:netid, leftnum:0, rightnum:0, CellList:clist}
 				netslice = append(netslice, netptr)
 				netid++
 			case 'c':
@@ -71,7 +73,7 @@ func LinesToGraph(lines []string){
 				} else {
 					//Initial a cell
 					nlist := []*Net{netptr}
-					cellptr = &Cell{name:cellid, NetList:nlist}
+					cellptr = &Cell{name:cellid, NetList:nlist, moved:false, gain:0}
 					cellmap[cellid] = cellptr
 					cellcount++
 				}
@@ -83,7 +85,14 @@ func LinesToGraph(lines []string){
 }
 
 func InitialPartition(){
-	for _, cell := range cellmap{
+	var cell_by_netnum []*Cell
+	for _, cell := range cellmap {
+		cell_by_netnum =  append(cell_by_netnum, cell)
+	}
+	sort.Slice(cell_by_netnum, func(i, j int) bool {
+		return len(cell_by_netnum[i].NetList) < len(cell_by_netnum[j].NetList)
+	})
+	for _, cell := range cell_by_netnum {
 		if len(leftpart)+1 <= cellcount/2 {
 			leftpart = append(leftpart, cell)
 			cell.leftpart = true //update cell position
@@ -99,22 +108,27 @@ func InitialPartition(){
 				net.rightnum ++
 			}
 		}
+		cell.moved = false //set to none moved.
 	}
 }
 
-func InitialBucket(){
+func InitialGain(){
 	//Calculate gain of each cell
-	maxgain, mingain = 0, 0
 	for _, cell := range cellmap {
 		var cellgain int
 		for _, net := range cell.NetList {
+			//no cell on the other side -> gain += -1
+			//one self on this side -> gain += 1
 			if cell.leftpart {
-				cellgain += net.rightnum - net.leftnum
+				if net.rightnum == 0 { cellgain-- }
+				if net.leftnum == 1 { cellgain++ }
 			} else {
-				cellgain += net.leftnum - net.rightnum
+				if net.leftnum == 0 { cellgain-- }
+				if net.rightnum == 1 { cellgain++ }
 			}
 		}
 		cell.gain = cellgain
+		//update bound
 		if cellgain > maxgain {
 			maxgain = cellgain
 		}
@@ -122,11 +136,143 @@ func InitialBucket(){
 			mingain = cellgain
 		}
 	}
-	bucketlist = make([][]*Cell, maxgain - mingain +1)
+}
+
+func InitialBucket(){
+	//Update cell gain of initial partition
+	InitialGain()
+	gainmap = make(map[int]*Cell)//Initial map
 	for _, cell := range cellmap {
-		index := cell.gain - mingain
-		bucketlist[index] = append(bucketlist[index], cell)
+		cellgain := cell.gain
+		//Initial gain(bucket) list
+		if root, ok := gainmap[cellgain]; ok {
+			root.endcell.nextcell = cell
+			cell.prevcell = root.endcell
+			root.endcell = cell
+		} else {
+			//Initial a cell
+			gainmap[cellgain] = cell
+			cell.endcell = cell
+		}
 	}
+	/*
+	//print gain map member
+	for i := mingain; i <= maxgain; i++ {
+		if gcell, ok := gainmap[i]; ok {
+			count := 1
+			fmt.Println("")
+			fmt.Printf("Gain %d : ", i)
+			for gcell.nextcell != nil {
+				count++
+				gcell = gcell.nextcell
+			}
+			fmt.Println(count)
+		}
+	}
+	*/
+}
+
+func RemoveFromBucket(target *Cell) {
+	index := target.gain
+	//Target cell is the root of bucket
+	if target.prevcell == nil {
+		//Only member in this gain bucket.
+		if target.nextcell == nil {
+			target.endcell = nil
+			delete (gainmap,target.gain)
+			return
+		}
+		gainmap[index] = target.nextcell
+		//next cell get endcell & delete prevcell
+		target.nextcell.endcell = target.endcell
+		target.nextcell.prevcell = nil
+		//delete endcell & nextcell
+		target.endcell = nil
+		target.nextcell = nil
+		return
+	}
+	//link nextcell and prevcell
+	target.prevcell.nextcell = target.nextcell
+	target.nextcell.prevcell = target.prevcell
+	//delete self prevcell nextcell link
+	target.nextcell = nil
+	target.prevcell = nil
+	return
+}
+
+func AppendToBucket(target *Cell) {
+	index := target.gain
+	if root, ok := gainmap[index]; ok {
+		root.endcell.nextcell = target
+		target.prevcell = root.endcell
+		root.endcell = target
+	} else {
+		gainmap[index] = target
+		target.endcell = target
+	}
+}
+
+func UpdateGain(target *Cell) {
+	var cellgain int
+	if target.moved {
+		cellgain = 0
+		for _, net := range target.NetList {
+			if !target.leftpart {
+				net.rightnum++
+				net.leftnum--
+				if net.leftnum == 0 { cellgain-- }
+				if net.rightnum == 1 { cellgain++ }
+
+			} else {
+				net.leftnum++
+				net.rightnum--
+				if net.rightnum == 0 { cellgain-- }
+				if net.leftnum == 1 { cellgain++ }
+			}
+		}
+		target.gain = cellgain
+		//TODO
+		for _, net := range target.NetList {
+			for _, cell := range net.CellList {
+				if !cell.moved { UpdateGain(cell) }
+			}
+		}
+	} else {
+		cellgain = 0
+		for _, net := range target.NetList {
+			//no cell on the other side -> gain += -1
+			//one self on this side -> gain += 1
+			if target.leftpart {
+				if net.rightnum == 0 { cellgain-- }
+				if net.leftnum == 1 { cellgain++ }
+			} else {
+				if net.leftnum == 0 { cellgain-- }
+				if net.rightnum == 1 { cellgain++ }
+			}
+		}
+		if target.gain != cellgain {
+			RemoveFromBucket(target)//Need to be done before update gain!
+			target.gain = cellgain
+			AppendToBucket(target)
+		}
+	}
+	//update bound
+	if cellgain > maxgain {
+		maxgain = cellgain
+	}
+	if cellgain < mingain {
+		mingain = cellgain
+	}
+}
+
+func MoveCell(target *Cell) {
+	RemoveFromBucket(target)//Need to be done before update gain!
+	//move cell to other side.
+	target.leftpart = !target.leftpart
+	target.moved = true
+	//calculate gain.
+	UpdateGain(target)
+	//Target cell don't need to append back to bucket? TODO
 }
 
 func main() {
