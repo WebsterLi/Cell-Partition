@@ -61,7 +61,7 @@ func LinesToGraph(lines []string){
 			switch word[0] {
 			case 'N':
 				var clist []*Cell
-				netptr = &Net{name:netid, CellList:clist}
+				netptr = &Net{name:netid, leftnum:0, rightnum:0, CellList:clist}
 				netslice = append(netslice, netptr)
 				netid++
 			case 'c':
@@ -73,7 +73,7 @@ func LinesToGraph(lines []string){
 				} else {
 					//Initial a cell
 					nlist := []*Net{netptr}
-					cellptr = &Cell{name:cellid, NetList:nlist}
+					cellptr = &Cell{name:cellid, NetList:nlist, moved:false, gain:0}
 					cellmap[cellid] = cellptr
 					cellcount++
 				}
@@ -108,6 +108,7 @@ func InitialPartition(){
 				net.rightnum ++
 			}
 		}
+		cell.moved = false //set to none moved.
 	}
 }
 
@@ -196,6 +197,7 @@ func RemoveFromBucket(target *Cell) {
 	target.prevcell = nil
 	return
 }
+
 func AppendToBucket(target *Cell) {
 	index := target.gain
 	if root, ok := gainmap[index]; ok {
@@ -207,6 +209,61 @@ func AppendToBucket(target *Cell) {
 		target.endcell = target
 	}
 }
+
+func UpdateGain(target *Cell) {
+	cellgain := 0
+	if target.moved {
+		for _, net := range target.NetList {
+			if !target.leftpart {
+				net.rightnum++
+				net.leftnum--
+				if net.leftnum == 0 { cellgain-- }
+				if net.rightnum == 1 { cellgain++ }
+
+			} else {
+				net.leftnum++
+				net.rightnum--
+				if net.rightnum == 0 { cellgain-- }
+				if net.leftnum == 1 { cellgain++ }
+			}
+		}
+		target.gain = cellgain
+		//TODO
+		for _, net := range target.NetList {
+			for _, cell := range net.CellList {
+				if !cell.moved { UpdateGain(cell) }
+			}
+		}
+	} else {
+		for _, net := range target.NetList {
+			//no cell on the other side -> gain += -1
+			//one self on this side -> gain += 1
+			if target.leftpart {
+				if net.rightnum == 0 { cellgain-- }
+				if net.leftnum == 1 { cellgain++ }
+			} else {
+				if net.leftnum == 0 { cellgain-- }
+				if net.rightnum == 1 { cellgain++ }
+			}
+		}
+		if target.gain != cellgain {
+			RemoveFromBucket(target)//Need to be done before update gain!
+			target.gain = cellgain
+			AppendToBucket(target)
+		}
+	}
+}
+
+func MoveCell(target *Cell) {
+	RemoveFromBucket(target)//Need to be done before update gain!
+	//TODO
+	target.leftpart = !target.leftpart
+	target.moved = true
+	//TODO
+	UpdateGain(target)
+	//Target cell don't need to append back to bucket? TODO
+}
+
 func main() {
 	cellmap = make(map[int]*Cell)//Initial map
 	// Loop over lines in file.
