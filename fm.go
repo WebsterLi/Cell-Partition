@@ -113,12 +113,11 @@ func InitialPartition(){
 
 func InitialGain(){
 	//Calculate gain of each cell
-	//gain calculate
-	maxgain, mingain = 0, 0
-
 	for _, cell := range cellmap {
 		var cellgain int
 		for _, net := range cell.NetList {
+			//no cell on the other side -> gain += -1
+			//one self on this side -> gain += 1
 			if cell.leftpart {
 				if net.rightnum == 0 { cellgain-- }
 				if net.leftnum == 1 { cellgain++ }
@@ -155,6 +154,7 @@ func InitialBucket(){
 			cell.endcell = cell
 		}
 	}
+	//print gain map mamber
 	for i:= mingain; i<=maxgain; i++ {
 		if gcell, ok := gainmap[i]; ok {
 			count := 1
