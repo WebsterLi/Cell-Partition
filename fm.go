@@ -20,7 +20,7 @@ type Cell struct{
 	NetList []*Net
 	prevcell, nextcell, endcell *Cell
 }
-var (
+var(
 	cellcount, maxgain, mingain, currgsum, prevgsum int
 	degree float64
 	netslice []*Net
@@ -34,6 +34,15 @@ func (c *Cell) Reset() {
 	c.nextcell = nil
 	c.endcell = nil
 }
+/*func NewPartitioner() *Partitioner {
+	p := new(Partitioner)
+	//Initial maps
+	p.cellmap = make(map[int]*Cell)
+	p.leftpart = make(map[int]*Cell)
+	p.rightpart = make(map[int]*Cell)
+	p.gainmap = make(map[int]*Cell)
+	return p
+}*/
 func LinesInFile(fileName string) []string {
 	f, _ := os.Open(fileName)
 	// Create new Scanner.
@@ -165,24 +174,9 @@ func GetBucket(){
 			cell.endcell = cell
 		}
 	}
-	/*
-	//print gain map member
-	for i := mingain; i <= maxgain; i++ {
-		if gcell, ok := gainmap[i]; ok {
-			count := 1
-			fmt.Println("")
-			fmt.Printf("Gain %d : ", i)
-			for gcell.nextcell != nil {
-				count++
-				gcell = gcell.nextcell
-			}
-			fmt.Println(count)
-		}
-	}
-	*/
 }
 
-func RemoveFromBucket(target *Cell) {
+func (target *Cell) RemoveFromBucket() {
 	index := target.gain
 	//Target cell is the root of bucket
 	if target.prevcell == nil {
@@ -215,7 +209,7 @@ func RemoveFromBucket(target *Cell) {
 	return
 }
 
-func AppendToBucket(target *Cell) {
+func (target *Cell) AppendToBucket() {
 	index := target.gain
 	if root, ok := gainmap[index]; ok {
 		root.endcell.nextcell = target
@@ -227,7 +221,7 @@ func AppendToBucket(target *Cell) {
 	}
 }
 
-func UpdateGain(target *Cell) {
+func (target *Cell) UpdateGain() {
 	var cellgain int
 	if target.moved {
 		cellgain = 0
@@ -249,7 +243,7 @@ func UpdateGain(target *Cell) {
 		//Update gain of other realated cell.
 		for _, net := range target.NetList {
 			for _, cell := range net.CellList {
-				if !cell.moved { UpdateGain(cell) }
+				if !cell.moved { cell.UpdateGain() }
 			}
 		}
 	} else {
@@ -266,9 +260,9 @@ func UpdateGain(target *Cell) {
 			}
 		}
 		if target.gain != cellgain {
-			RemoveFromBucket(target)//Need to be done before update gain!
+			target.RemoveFromBucket()//Need to be done before update gain!
 			target.gain = cellgain
-			AppendToBucket(target)
+			target.AppendToBucket()
 		}
 	}
 	//update bound
@@ -280,7 +274,7 @@ func UpdateGain(target *Cell) {
 	}
 }
 
-func MoveCell(target *Cell) {
+func (target *Cell) MoveCell() {
 	var move bool
 	if target.leftside {
 		move = len(leftpart) - 1 > int(float64(cellcount) * degree)
@@ -289,7 +283,7 @@ func MoveCell(target *Cell) {
 	}
 	if move {
 		//Remove operation need to be done before update gain!
-		RemoveFromBucket(target)
+		target.RemoveFromBucket()
 		//move cell to other side.
 		if target.leftside {
 			delete (leftpart, target.name)
@@ -301,7 +295,7 @@ func MoveCell(target *Cell) {
 		target.leftside = !target.leftside
 		target.moved = true
 		//calculate gain.
-		UpdateGain(target)
+		target.UpdateGain()
 	}
 }
 func FMLoop() {
@@ -328,10 +322,10 @@ func FMLoop() {
 		if gcell, ok := gainmap[i]; ok {
 			for gcell.nextcell != nil {
 				queuecell := gcell.nextcell
-				MoveCell(gcell)
+				gcell.MoveCell()
 				gcell = queuecell
 			}
-			MoveCell(gcell)
+			gcell.MoveCell()
 		}
 	}
 	GetGain()
@@ -357,11 +351,11 @@ func FMLoop() {
 	}
 }
 func main() {
-	//Initial map
+	//Initial maps
 	cellmap = make(map[int]*Cell)
 	leftpart = make(map[int]*Cell)
 	rightpart = make(map[int]*Cell)
-	gainmap = make(map[int]*Cell)//Initial map
+	gainmap = make(map[int]*Cell)
 	// Loop over lines in file.
 	lines := LinesInFile(`input_data/input_0.dat`)
 	LinesToGraph(lines)
