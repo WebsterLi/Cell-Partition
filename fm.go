@@ -8,32 +8,46 @@ import (
 	"sort"
 	"os"
 )
+
 type Net struct{
 	name int
 	leftnum int
 	rightnum int
 	CellList []*Cell
 }
+
 type Cell struct{
 	name, gain int
 	moved, leftside bool
 	NetList []*Net
 	prevcell, nextcell, endcell *Cell
 }
-var (
+
+type Partitioner struct {
 	cellcount, maxgain, mingain, currgsum, prevgsum int
 	degree float64
-	netslice []*Net
 	leftpart map[int]*Cell
 	rightpart map[int]*Cell
 	cellmap map[int]*Cell
 	gainmap map[int]*Cell//bucketlist
-)
+}
+
 func (c *Cell) Reset() {
 	c.prevcell = nil
 	c.nextcell = nil
 	c.endcell = nil
 }
+
+func NewPartitioner() *Partitioner {
+	p := new(Partitioner)
+	//Initial maps
+	p.cellmap = make(map[int]*Cell)
+	p.leftpart = make(map[int]*Cell)
+	p.rightpart = make(map[int]*Cell)
+	p.gainmap = make(map[int]*Cell)
+	return p
+}
+
 func LinesInFile(fileName string) []string {
 	f, _ := os.Open(fileName)
 	// Create new Scanner.
@@ -48,7 +62,7 @@ func LinesInFile(fileName string) []string {
 	return result
 }
 
-func LinesToGraph(lines []string){
+func LinesToGraph(lines []string, pter *Partitioner){
 	var (
 		netid, cellid int
 		err error
@@ -58,49 +72,58 @@ func LinesToGraph(lines []string){
 	for iter, line := range lines {
 		netinfo := strings.Fields(line)
 		if iter == 0 {
-			degree, err = strconv.ParseFloat(netinfo[0], 64)
+			pter.degree, err = strconv.ParseFloat(netinfo[0], 64)
 			if err != nil {fmt.Println(netinfo)}
-			if degree > 0.5 { degree = 1 - degree }
+			if pter.degree > 0.5 { pter.degree = 1 - pter.degree }
 		}
 		for _, word := range netinfo {
 			switch word[0] {
 			case 'N':
 				var clist []*Cell
 				netptr = &Net{name:netid, leftnum:0, rightnum:0, CellList:clist}
-				netslice = append(netslice, netptr)
 				netid++
 			case 'c':
 				cellid, err = strconv.Atoi(strings.Trim(word,"c"))
 				if err != nil {fmt.Println(word)}
-				if curcell, ok := cellmap[cellid]; ok {
+				if curcell, ok := pter.cellmap[cellid]; ok {
 					curcell.NetList = append(curcell.NetList, netptr)
-					cellmap[cellid] = curcell
+					pter.cellmap[cellid] = curcell
 				} else {
 					//Initial a cell
 					nlist := []*Net{netptr}
 					cellptr = &Cell{name:cellid, NetList:nlist, moved:false, gain:0}
-					cellmap[cellid] = cellptr
-					cellcount++
+					pter.cellmap[cellid] = cellptr
+					pter.cellcount++
 				}
-				netslice[len(netslice)-1].CellList = append(netslice[len(netslice)-1].CellList, cellptr)
 			default :
 			}
 		}
 	}
 }
 
-func InitialPartition(){
+func PrintInfo(pter *Partitioner) {
+	if pter.prevgsum == 0 {
+		fmt.Println("--------------Initial info---------------")
+	} else {
+		fmt.Println("------------FM partition info------------")
+	}
+	fmt.Println("	gain range:", pter.maxgain, pter.mingain)
+	fmt.Println("	total remain gain:", pter.currgsum)
+	fmt.Println("	partition status:", len(pter.leftpart), len(pter.rightpart))
+}
+
+func (pter *Partitioner) InitialPartition(){
 	var cell_by_netnum []*Cell
-	for _, cell := range cellmap {
+	for _, cell := range pter.cellmap {
 		cell_by_netnum =  append(cell_by_netnum, cell)
 	}
 	sort.Slice(cell_by_netnum, func(i, j int) bool {
 		return len(cell_by_netnum[i].NetList) < len(cell_by_netnum[j].NetList)
 	})
 	for _, cell := range cell_by_netnum {
-		if len(leftpart)+1 <= cellcount/2 {
-			if _, ok := leftpart[cell.name]; !ok {
-				leftpart[cell.name] = cell
+		if len(pter.leftpart)+1 <= pter.cellcount/2 {
+			if _, ok := pter.leftpart[cell.name]; !ok {
+				pter.leftpart[cell.name] = cell
 				cell.leftside = true //update cell position
 				//update net info 
 				for _, net := range cell.NetList{
@@ -108,8 +131,8 @@ func InitialPartition(){
 				}
 			}
 		} else {
-			if _, ok := rightpart[cell.name]; !ok {
-				rightpart[cell.name] = cell
+			if _, ok := pter.rightpart[cell.name]; !ok {
+				pter.rightpart[cell.name] = cell
 				cell.leftside = false //update cell position
 				//update net info 
 				for _, net := range cell.NetList{
@@ -121,11 +144,11 @@ func InitialPartition(){
 	}
 }
 
-func GetGain(){
-	maxgain = 0
-	mingain = 0
+func (pter *Partitioner) GetGain(){
+	pter.maxgain = 0
+	pter.mingain = 0
 	//Calculate gain of each cell
-	for _, cell := range cellmap {
+	for _, cell := range pter.cellmap {
 		var cellgain int
 		for _, net := range cell.NetList {
 			//no cell on the other side -> gain += -1
@@ -140,59 +163,44 @@ func GetGain(){
 		}
 		cell.gain = cellgain
 		//update bound
-		if cellgain > maxgain {
-			maxgain = cellgain
+		if cellgain > pter.maxgain {
+			pter.maxgain = cellgain
 		}
-		if cellgain < mingain {
-			mingain = cellgain
+		if cellgain < pter.mingain {
+			pter.mingain = cellgain
 		}
 	}
 }
 
-func GetBucket(){
-	gainmap = make(map[int]*Cell)//Reset map
-	for _, cell := range cellmap {
+func (pter *Partitioner) GetBucket(){
+	pter.gainmap = make(map[int]*Cell)//Reset map
+	for _, cell := range pter.cellmap {
 		cell.Reset()
 		cellgain := cell.gain
 		//Initial gain(bucket) list
-		if root, ok := gainmap[cellgain]; ok {
+		if root, ok := pter.gainmap[cellgain]; ok {
 			root.endcell.nextcell = cell
 			cell.prevcell = root.endcell
 			root.endcell = cell
 		} else {
 			//Initial a cell
-			gainmap[cellgain] = cell
+			pter.gainmap[cellgain] = cell
 			cell.endcell = cell
 		}
 	}
-	/*
-	//print gain map member
-	for i := mingain; i <= maxgain; i++ {
-		if gcell, ok := gainmap[i]; ok {
-			count := 1
-			fmt.Println("")
-			fmt.Printf("Gain %d : ", i)
-			for gcell.nextcell != nil {
-				count++
-				gcell = gcell.nextcell
-			}
-			fmt.Println(count)
-		}
-	}
-	*/
 }
 
-func RemoveFromBucket(target *Cell) {
+func (target *Cell) RemoveFromBucket(pter *Partitioner) {
 	index := target.gain
 	//Target cell is the root of bucket
 	if target.prevcell == nil {
 		//Only member in this gain bucket.
 		if target.nextcell == nil {
 			target.endcell = nil
-			delete (gainmap,target.gain)
+			delete (pter.gainmap,target.gain)
 			return
 		}
-		gainmap[index] = target.nextcell
+		pter.gainmap[index] = target.nextcell
 		//next cell get endcell & delete prevcell
 		target.nextcell.endcell = target.endcell
 		target.nextcell.prevcell = nil
@@ -206,7 +214,7 @@ func RemoveFromBucket(target *Cell) {
 	if target.nextcell != nil {
 		target.nextcell.prevcell = target.prevcell
 	} else {
-		gainmap[index].endcell = target.prevcell
+		pter.gainmap[index].endcell = target.prevcell
 	}
 	//delete self pointer link
 	target.nextcell = nil
@@ -215,19 +223,19 @@ func RemoveFromBucket(target *Cell) {
 	return
 }
 
-func AppendToBucket(target *Cell) {
+func (target *Cell) AppendToBucket(pter *Partitioner) {
 	index := target.gain
-	if root, ok := gainmap[index]; ok {
+	if root, ok := pter.gainmap[index]; ok {
 		root.endcell.nextcell = target
 		target.prevcell = root.endcell
 		root.endcell = target
 	} else {
-		gainmap[index] = target
+		pter.gainmap[index] = target
 		target.endcell = target
 	}
 }
 
-func UpdateGain(target *Cell) {
+func (target *Cell) UpdateGain(pter *Partitioner) {
 	var cellgain int
 	if target.moved {
 		cellgain = 0
@@ -249,7 +257,7 @@ func UpdateGain(target *Cell) {
 		//Update gain of other realated cell.
 		for _, net := range target.NetList {
 			for _, cell := range net.CellList {
-				if !cell.moved { UpdateGain(cell) }
+				if !cell.moved { cell.UpdateGain(pter) }
 			}
 		}
 	} else {
@@ -266,104 +274,97 @@ func UpdateGain(target *Cell) {
 			}
 		}
 		if target.gain != cellgain {
-			RemoveFromBucket(target)//Need to be done before update gain!
+			target.RemoveFromBucket(pter)//Need to be done before update gain!
 			target.gain = cellgain
-			AppendToBucket(target)
+			target.AppendToBucket(pter)
 		}
 	}
 	//update bound
-	if cellgain > maxgain {
-		maxgain = cellgain
+	if cellgain > pter.maxgain {
+		pter.maxgain = cellgain
 	}
-	if cellgain < mingain {
-		mingain = cellgain
+	if cellgain < pter.mingain {
+		pter.mingain = cellgain
 	}
 }
 
-func MoveCell(target *Cell) {
+func (target *Cell) MoveCell(pter *Partitioner) {
 	var move bool
 	if target.leftside {
-		move = len(leftpart) - 1 > int(float64(cellcount) * degree)
+		move = len(pter.leftpart) - 1 > int(float64(pter.cellcount) * pter.degree)
 	} else {
-		move = len(rightpart) - 1 > int(float64(cellcount) * degree)
+		move = len(pter.rightpart) - 1 > int(float64(pter.cellcount) * pter.degree)
 	}
 	if move {
 		//Remove operation need to be done before update gain!
-		RemoveFromBucket(target)
+		target.RemoveFromBucket(pter)
 		//move cell to other side.
 		if target.leftside {
-			delete (leftpart, target.name)
-			rightpart[target.name] = target
+			delete (pter.leftpart, target.name)
+			pter.rightpart[target.name] = target
 		} else {
-			delete (rightpart, target.name)
-			leftpart[target.name] = target
+			delete (pter.rightpart, target.name)
+			pter.leftpart[target.name] = target
 		}
 		target.leftside = !target.leftside
 		target.moved = true
 		//calculate gain.
-		UpdateGain(target)
+		target.UpdateGain(pter)
 	}
 }
-func FMLoop() {
-	if len(gainmap) == 0 {
-		InitialPartition()
-		GetGain()
-		GetBucket()
-		prevgsum = 0
-		for i := maxgain; i > 0; i-- {
-			if gcell, ok := gainmap[i]; ok {
+
+func (pter *Partitioner) FMLoop() {
+	if len(pter.gainmap) == 0 {
+		pter.InitialPartition()
+		pter.GetGain()
+		pter.GetBucket()
+		pter.currgsum = 0
+		for i := pter.maxgain; i > 0; i-- {
+			if gcell, ok := pter.gainmap[i]; ok {
 				count := 1
 				for gcell.nextcell != nil {
 					count++
 					gcell = gcell.nextcell
 				}
-				prevgsum += i * count
+				pter.currgsum += i * count
 			}
 		}
-		fmt.Println("	initial gain range:", maxgain, mingain)
-		fmt.Println("	total remain gain:", prevgsum)
-		fmt.Println("	partition status:", len(leftpart), len(rightpart))
+		PrintInfo(pter)
+		pter.prevgsum = pter.currgsum
 	}
-	for i := maxgain; i > 0; i-- {
-		if gcell, ok := gainmap[i]; ok {
+	for i := pter.maxgain; i > 0; i-- {
+		if gcell, ok := pter.gainmap[i]; ok {
 			for gcell.nextcell != nil {
 				queuecell := gcell.nextcell
-				MoveCell(gcell)
+				gcell.MoveCell(pter)
 				gcell = queuecell
 			}
-			MoveCell(gcell)
+			gcell.MoveCell(pter)
 		}
 	}
-	GetGain()
-	GetBucket()
-	currgsum = 0
-	for i := maxgain; i > 0; i-- {
-		if gcell, ok := gainmap[i]; ok {
+	pter.GetGain()
+	pter.GetBucket()
+	pter.currgsum = 0
+	for i := pter.maxgain; i > 0; i-- {
+		if gcell, ok := pter.gainmap[i]; ok {
 			count := 1
 			for gcell.nextcell != nil {
 				count++
 				gcell = gcell.nextcell
 			}
-			currgsum += i * count
+			pter.currgsum += i * count
 		}
 	}
-	fmt.Println("------------FM partition info------------")
-	fmt.Println("	gain range:", maxgain, "~", mingain)
-	fmt.Println("	total remain gain:", currgsum)
-	fmt.Println("	partition status:", len(leftpart), len(rightpart))
-	if currgsum < prevgsum {
-		prevgsum = currgsum
-		FMLoop()
+	PrintInfo(pter)
+	if pter.currgsum < pter.prevgsum {
+		pter.prevgsum = pter.currgsum
+		pter.FMLoop()
 	}
 }
 func main() {
-	//Initial map
-	cellmap = make(map[int]*Cell)
-	leftpart = make(map[int]*Cell)
-	rightpart = make(map[int]*Cell)
-	gainmap = make(map[int]*Cell)//Initial map
+	pter := NewPartitioner()
 	// Loop over lines in file.
 	lines := LinesInFile(`input_data/input_0.dat`)
-	LinesToGraph(lines)
-	FMLoop()
+	LinesToGraph(lines, pter)
+	pter.FMLoop()
 }
