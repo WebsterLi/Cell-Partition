@@ -29,7 +29,11 @@ var (
 	cellmap map[int]*Cell
 	gainmap map[int]*Cell//bucketlist
 )
-
+func (c *Cell) Reset() {
+	c.prevcell = nil
+	c.nextcell = nil
+	c.endcell = nil
+}
 func LinesInFile(fileName string) []string {
 	f, _ := os.Open(fileName)
 	// Create new Scanner.
@@ -117,7 +121,9 @@ func InitialPartition(){
 	}
 }
 
-func InitialGain(){
+func GetGain(){
+	maxgain = 0
+	mingain = 0
 	//Calculate gain of each cell
 	for _, cell := range cellmap {
 		var cellgain int
@@ -143,8 +149,10 @@ func InitialGain(){
 	}
 }
 
-func InitialBucket(){
+func GetBucket(){
+	gainmap = make(map[int]*Cell)//Reset map
 	for _, cell := range cellmap {
+		cell.Reset()
 		cellgain := cell.gain
 		//Initial gain(bucket) list
 		if root, ok := gainmap[cellgain]; ok {
@@ -197,10 +205,14 @@ func RemoveFromBucket(target *Cell) {
 	target.prevcell.nextcell = target.nextcell
 	if target.nextcell != nil {
 		target.nextcell.prevcell = target.prevcell
+	} else {
+		//TODO
+		gainmap[index].endcell = target.prevcell
 	}
-	//delete self prevcell nextcell link
+	//delete self pointer link
 	target.nextcell = nil
 	target.prevcell = nil
+	target.endcell = nil
 	return
 }
 
@@ -297,8 +309,9 @@ func MoveCell(target *Cell) {
 func FMLoop() {
 	if len(gainmap) == 0 {
 		InitialPartition()
-		InitialGain()
-		InitialBucket()
+		GetGain()
+		GetBucket()
+		fmt.Println(maxgain, mingain)
 	}
 	for i := maxgain; i > 0; i-- {
 		if gcell, ok := gainmap[i]; ok {
@@ -310,8 +323,25 @@ func FMLoop() {
 			MoveCell(gcell)
 		}
 	}
-	fmt.Println(len(leftpart), len(rightpart))
-	if len(leftpart)+len(rightpart) == cellcount { fmt.Println("FM iteration success!") }
+	GetGain()
+	GetBucket()
+	fmt.Println("FM partition info:")
+	fmt.Println("	gain range:",maxgain, "~", mingain)
+	//print gain map member
+	totalgain := 0
+	for i := maxgain; i > 0; i-- {
+		if gcell, ok := gainmap[i]; ok {
+			count := 1
+			for gcell.nextcell != nil {
+				count++
+				gcell = gcell.nextcell
+			}
+			totalgain += i * count
+		}
+	}
+	fmt.Println("	total remain gain:", totalgain)
+	fmt.Println("	partition status:", len(leftpart), len(rightpart))
+	if maxgain > 0 { FMLoop() }
 }
 func main() {
 	//Initial map
