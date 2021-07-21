@@ -21,7 +21,7 @@ type Cell struct{
 	prevcell, nextcell, endcell *Cell
 }
 var (
-	cellcount, maxgain, mingain int
+	cellcount, maxgain, mingain, currgsum, prevgsum int
 	degree float64
 	netslice []*Net
 	leftpart map[int]*Cell
@@ -206,7 +206,6 @@ func RemoveFromBucket(target *Cell) {
 	if target.nextcell != nil {
 		target.nextcell.prevcell = target.prevcell
 	} else {
-		//TODO
 		gainmap[index].endcell = target.prevcell
 	}
 	//delete self pointer link
@@ -303,7 +302,6 @@ func MoveCell(target *Cell) {
 		target.moved = true
 		//calculate gain.
 		UpdateGain(target)
-		//Target cell don't need to append back to bucket? TODO
 	}
 }
 func FMLoop() {
@@ -311,7 +309,20 @@ func FMLoop() {
 		InitialPartition()
 		GetGain()
 		GetBucket()
-		fmt.Println(maxgain, mingain)
+		prevgsum = 0
+		for i := maxgain; i > 0; i-- {
+			if gcell, ok := gainmap[i]; ok {
+				count := 1
+				for gcell.nextcell != nil {
+					count++
+					gcell = gcell.nextcell
+				}
+				prevgsum += i * count
+			}
+		}
+		fmt.Println("	initial gain range:", maxgain, mingain)
+		fmt.Println("	total remain gain:", prevgsum)
+		fmt.Println("	partition status:", len(leftpart), len(rightpart))
 	}
 	for i := maxgain; i > 0; i-- {
 		if gcell, ok := gainmap[i]; ok {
@@ -325,10 +336,7 @@ func FMLoop() {
 	}
 	GetGain()
 	GetBucket()
-	fmt.Println("FM partition info:")
-	fmt.Println("	gain range:",maxgain, "~", mingain)
-	//print gain map member
-	totalgain := 0
+	currgsum = 0
 	for i := maxgain; i > 0; i-- {
 		if gcell, ok := gainmap[i]; ok {
 			count := 1
@@ -336,12 +344,17 @@ func FMLoop() {
 				count++
 				gcell = gcell.nextcell
 			}
-			totalgain += i * count
+			currgsum += i * count
 		}
 	}
-	fmt.Println("	total remain gain:", totalgain)
+	fmt.Println("------------FM partition info------------")
+	fmt.Println("	gain range:", maxgain, "~", mingain)
+	fmt.Println("	total remain gain:", currgsum)
 	fmt.Println("	partition status:", len(leftpart), len(rightpart))
-	if maxgain > 0 { FMLoop() }
+	if currgsum < prevgsum {
+		prevgsum = currgsum
+		FMLoop()
+	}
 }
 func main() {
 	//Initial map
