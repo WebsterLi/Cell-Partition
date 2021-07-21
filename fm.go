@@ -26,6 +26,7 @@ type Cell struct{
 type Partitioner struct {
 	cellcount, maxgain, mingain, currgsum, prevgsum int
 	degree float64
+	netslice []*Net
 	leftpart map[int]*Cell
 	rightpart map[int]*Cell
 	cellmap map[int]*Cell
@@ -81,6 +82,7 @@ func LinesToGraph(lines []string, pter *Partitioner){
 			case 'N':
 				var clist []*Cell
 				netptr = &Net{name:netid, leftnum:0, rightnum:0, CellList:clist}
+				pter.netslice = append(pter.netslice, netptr)
 				netid++
 			case 'c':
 				cellid, err = strconv.Atoi(strings.Trim(word,"c"))
@@ -95,6 +97,7 @@ func LinesToGraph(lines []string, pter *Partitioner){
 					pter.cellmap[cellid] = cellptr
 					pter.cellcount++
 				}
+				pter.netslice[len(pter.netslice)-1].CellList = append(pter.netslice[len(pter.netslice)-1].CellList, cellptr)
 			default :
 			}
 		}
@@ -319,14 +322,9 @@ func (pter *Partitioner) FMLoop() {
 		pter.GetGain()
 		pter.GetBucket()
 		pter.currgsum = 0
-		for i := pter.maxgain; i > 0; i-- {
-			if gcell, ok := pter.gainmap[i]; ok {
-				count := 1
-				for gcell.nextcell != nil {
-					count++
-					gcell = gcell.nextcell
-				}
-				pter.currgsum += i * count
+		for _, net := range pter.netslice {
+			if net.leftnum != 0 && net.rightnum != 0 {
+				pter.currgsum++
 			}
 		}
 		PrintInfo(pter)
@@ -345,14 +343,9 @@ func (pter *Partitioner) FMLoop() {
 	pter.GetGain()
 	pter.GetBucket()
 	pter.currgsum = 0
-	for i := pter.maxgain; i > 0; i-- {
-		if gcell, ok := pter.gainmap[i]; ok {
-			count := 1
-			for gcell.nextcell != nil {
-				count++
-				gcell = gcell.nextcell
-			}
-			pter.currgsum += i * count
+	for _, net := range pter.netslice {
+		if net.leftnum != 0 && net.rightnum != 0 {
+			pter.currgsum++
 		}
 	}
 	PrintInfo(pter)
