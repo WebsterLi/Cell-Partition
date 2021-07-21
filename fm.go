@@ -16,7 +16,7 @@ type Net struct{
 }
 type Cell struct{
 	name, gain int
-	moved, leftpart bool
+	moved, leftside bool
 	NetList []*Net
 	prevcell, nextcell, endcell *Cell
 }
@@ -24,8 +24,8 @@ var (
 	cellcount, maxgain, mingain int
 	degree float64
 	netslice []*Net
-	leftpart []*Cell
-	rightpart []*Cell
+	leftpart map[int]*Cell
+	rightpart map[int]*Cell
 	cellmap map[int]*Cell
 	gainmap map[int]*Cell//bucketlist
 )
@@ -94,18 +94,22 @@ func InitialPartition(){
 	})
 	for _, cell := range cell_by_netnum {
 		if len(leftpart)+1 <= cellcount/2 {
-			leftpart = append(leftpart, cell)
-			cell.leftpart = true //update cell position
-			//update net info 
-			for _, net := range cell.NetList{
-				net.leftnum ++
+			if _, ok := leftpart[cell.name]; !ok {
+				leftpart[cell.name] = cell
+				cell.leftside = true //update cell position
+				//update net info 
+				for _, net := range cell.NetList{
+					net.leftnum ++
+				}
 			}
 		} else {
-			rightpart = append(rightpart, cell)
-			cell.leftpart = false //update cell position
-			//update net info 
-			for _, net := range cell.NetList{
-				net.rightnum ++
+			if _, ok := rightpart[cell.name]; !ok {
+				rightpart[cell.name] = cell
+				cell.leftside = false //update cell position
+				//update net info 
+				for _, net := range cell.NetList{
+					net.rightnum ++
+				}
 			}
 		}
 		cell.moved = false //set to none moved.
@@ -119,7 +123,7 @@ func InitialGain(){
 		for _, net := range cell.NetList {
 			//no cell on the other side -> gain += -1
 			//one self on this side -> gain += 1
-			if cell.leftpart {
+			if cell.leftside {
 				if net.rightnum == 0 { cellgain-- }
 				if net.leftnum == 1 { cellgain++ }
 			} else {
@@ -217,7 +221,7 @@ func UpdateGain(target *Cell) {
 	if target.moved {
 		cellgain = 0
 		for _, net := range target.NetList {
-			if !target.leftpart {
+			if !target.leftside {
 				net.rightnum++
 				net.leftnum--
 				if net.leftnum == 0 { cellgain-- }
@@ -231,7 +235,7 @@ func UpdateGain(target *Cell) {
 			}
 		}
 		target.gain = cellgain
-		//TODO
+		//Update gain of other realated cell.
 		for _, net := range target.NetList {
 			for _, cell := range net.CellList {
 				if !cell.moved { UpdateGain(cell) }
@@ -242,7 +246,7 @@ func UpdateGain(target *Cell) {
 		for _, net := range target.NetList {
 			//no cell on the other side -> gain += -1
 			//one self on this side -> gain += 1
-			if target.leftpart {
+			if target.leftside {
 				if net.rightnum == 0 { cellgain-- }
 				if net.leftnum == 1 { cellgain++ }
 			} else {
@@ -266,17 +270,39 @@ func UpdateGain(target *Cell) {
 }
 
 func MoveCell(target *Cell) {
-	RemoveFromBucket(target)//Need to be done before update gain!
+	//Remove operation need to be done before update gain!
+	RemoveFromBucket(target)
 	//move cell to other side.
-	target.leftpart = !target.leftpart
+	target.leftside = !target.leftside
+	if _, ok := leftpart[target.name]; !ok {
+		delete (leftpart, target.name)
+		rightpart[target.name] = target
+	} else {
+		delete (rightpart, target.name)
+		leftpart[target.name] = target
+	}
 	target.moved = true
 	//calculate gain.
 	UpdateGain(target)
 	//Target cell don't need to append back to bucket? TODO
 }
-
+func FMLoop() {
+	for i := maxgain; i >= mingain; i-- {
+		if gcell, ok := gainmap[i]; ok {
+			if gcell.leftside {
+				//len() degree
+			}
+			for gcell.nextcell != nil {
+				gcell = gcell.nextcell
+			}
+		}
+	}
+}
 func main() {
-	cellmap = make(map[int]*Cell)//Initial map
+	//Initial map
+	cellmap = make(map[int]*Cell)
+	leftpart = make(map[int]*Cell)
+	rightpart = make(map[int]*Cell)
 	// Loop over lines in file.
 	lines := LinesInFile(`input_data/input_0.dat`)
 	LinesToGraph(lines)
