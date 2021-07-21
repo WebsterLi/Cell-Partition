@@ -56,6 +56,7 @@ func LinesToGraph(lines []string){
 		if iter == 0 {
 			degree, err = strconv.ParseFloat(netinfo[0], 64)
 			if err != nil {fmt.Println(netinfo)}
+			if degree > 0.5 { degree = 1 - degree }
 		}
 		for _, word := range netinfo {
 			switch word[0] {
@@ -143,9 +144,6 @@ func InitialGain(){
 }
 
 func InitialBucket(){
-	//Update cell gain of initial partition
-	InitialGain()
-	gainmap = make(map[int]*Cell)//Initial map
 	for _, cell := range cellmap {
 		cellgain := cell.gain
 		//Initial gain(bucket) list
@@ -197,7 +195,9 @@ func RemoveFromBucket(target *Cell) {
 	}
 	//link nextcell and prevcell
 	target.prevcell.nextcell = target.nextcell
-	target.nextcell.prevcell = target.prevcell
+	if target.nextcell != nil {
+		target.nextcell.prevcell = target.prevcell
+	}
 	//delete self prevcell nextcell link
 	target.nextcell = nil
 	target.prevcell = nil
@@ -270,42 +270,57 @@ func UpdateGain(target *Cell) {
 }
 
 func MoveCell(target *Cell) {
-	//Remove operation need to be done before update gain!
-	RemoveFromBucket(target)
-	//move cell to other side.
-	target.leftside = !target.leftside
-	if _, ok := leftpart[target.name]; !ok {
-		delete (leftpart, target.name)
-		rightpart[target.name] = target
+	var move bool
+	if target.leftside {
+		move = len(leftpart) - 1 > int(float64(cellcount) * degree)
 	} else {
-		delete (rightpart, target.name)
-		leftpart[target.name] = target
+		move = len(rightpart) - 1 > int(float64(cellcount) * degree)
 	}
-	target.moved = true
-	//calculate gain.
-	UpdateGain(target)
-	//Target cell don't need to append back to bucket? TODO
+	if move {
+		//Remove operation need to be done before update gain!
+		RemoveFromBucket(target)
+		//move cell to other side.
+		if target.leftside {
+			delete (leftpart, target.name)
+			rightpart[target.name] = target
+		} else {
+			delete (rightpart, target.name)
+			leftpart[target.name] = target
+		}
+		target.leftside = !target.leftside
+		target.moved = true
+		//calculate gain.
+		UpdateGain(target)
+		//Target cell don't need to append back to bucket? TODO
+	}
 }
 func FMLoop() {
-	for i := maxgain; i >= mingain; i-- {
+	if len(gainmap) == 0 {
+		InitialPartition()
+		InitialGain()
+		InitialBucket()
+	}
+	for i := maxgain; i > 0; i-- {
 		if gcell, ok := gainmap[i]; ok {
-			if gcell.leftside {
-				//len() degree
-			}
 			for gcell.nextcell != nil {
-				gcell = gcell.nextcell
+				queuecell := gcell.nextcell
+				MoveCell(gcell)
+				gcell = queuecell
 			}
+			MoveCell(gcell)
 		}
 	}
+	fmt.Println(len(leftpart), len(rightpart))
+	if len(leftpart)+len(rightpart) == cellcount { fmt.Println("FM iteration success!") }
 }
 func main() {
 	//Initial map
 	cellmap = make(map[int]*Cell)
 	leftpart = make(map[int]*Cell)
 	rightpart = make(map[int]*Cell)
+	gainmap = make(map[int]*Cell)//Initial map
 	// Loop over lines in file.
 	lines := LinesInFile(`input_data/input_0.dat`)
 	LinesToGraph(lines)
-	InitialPartition()
-	InitialBucket()
+	FMLoop()
 }
