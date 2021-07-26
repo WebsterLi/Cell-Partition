@@ -339,31 +339,22 @@ func (target *Cell) MoveCell(pter *Partitioner) {
 	}
 }
 
+func (pter *Partitioner) PartitionSet() {
+	pter.GetGain()
+	pter.GetBucket()
+	pter.currcut = 0
+	//Calculate cutsize
+	for _, net := range pter.netslice {
+		if net.leftnum != 0 && net.rightnum != 0 {
+			pter.currcut++
+		}
+	}
+	PrintInfo(pter)
+}
 func (pter *Partitioner) FMLoop() {
 	if len(pter.gainmap) == 0 {
 		pter.InitialPartition()
-		pter.GetGain()
-		pter.GetBucket()
-		pter.currcut = 0
-		//TODO
-		for _, net := range pter.netslice {
-			/*
-			net.leftnum = 0
-			net.rightnum = 0
-			for _, cell := range net.CellList {
-				if cell.leftside {
-					net.leftnum++
-				} else {
-					net.rightnum++
-				}
-			}
-			*/
-			if net.leftnum != 0 && net.rightnum != 0 {
-				pter.currcut++
-			}
-		}
-		//TODO
-		PrintInfo(pter)
+		pter.PartitionSet()
 		pter.prevcut = pter.currcut
 	}
 	for i := pter.maxgain; i > 0; i-- {
@@ -376,28 +367,8 @@ func (pter *Partitioner) FMLoop() {
 			gcell.MoveCell(pter)
 		}
 	}
-	pter.GetGain()
-	pter.GetBucket()
-	pter.currcut = 0
-	//TODO
-	for _, net := range pter.netslice {
-		/*
-		net.leftnum = 0
-		net.rightnum = 0
-		for _, cell := range net.CellList {
-			if cell.leftside {
-				net.leftnum++
-			} else {
-				net.rightnum++
-			}
-		}
-		*/
-		if net.leftnum != 0 && net.rightnum != 0 {
-			pter.currcut++
-		}
-	}
-	//TODO
-	PrintInfo(pter)
+	//prepare for next loop
+	pter.PartitionSet()
 	if pter.currcut < pter.prevcut {
 		pter.prevcut = pter.currcut
 		pter.FMLoop()
