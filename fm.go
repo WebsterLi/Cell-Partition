@@ -24,7 +24,7 @@ type Cell struct{
 }
 
 type Partitioner struct {
-	cellcount, maxgain, mingain, currcut, prevcut int
+	iter, cellcount, maxgain, mingain, currcut, prevcut int
 	degree float64
 	netslice []*Net
 	leftpart map[int]*Cell
@@ -111,6 +111,7 @@ func PrintInfo(pter *Partitioner) {
 	} else {
 		fmt.Println("------------FM partition info------------")
 	}
+	fmt.Println("	total iteration:", pter.iter)
 	fmt.Println("	gain range:", pter.maxgain, pter.mingain)
 	fmt.Println("	total remain gain:", pter.currcut)
 	fmt.Println("	partition status:", len(pter.leftpart), len(pter.rightpart))
@@ -340,6 +341,7 @@ func (target *Cell) MoveCell(pter *Partitioner) {
 }
 
 func (pter *Partitioner) PartitionSet() {
+	pter.iter++
 	pter.GetGain()
 	pter.GetBucket()
 	pter.currcut = 0
@@ -349,7 +351,7 @@ func (pter *Partitioner) PartitionSet() {
 			pter.currcut++
 		}
 	}
-	PrintInfo(pter)
+	//PrintInfo(pter)
 }
 func (pter *Partitioner) FMLoop() {
 	if len(pter.gainmap) == 0 {
@@ -372,6 +374,8 @@ func (pter *Partitioner) FMLoop() {
 	if pter.currcut < pter.prevcut {
 		pter.prevcut = pter.currcut
 		pter.FMLoop()
+	} else {
+		PrintInfo(pter)
 	}
 }
 func main() {
