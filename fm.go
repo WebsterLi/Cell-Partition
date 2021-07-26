@@ -103,18 +103,6 @@ func LinesToGraph(lines []string, pter *Partitioner){
 			}
 		}
 	}
-		//TODO
-		for _, net := range pter.netslice{
-			test := make(map[int]*Cell)
-			for _, cell := range net.CellList{
-				if _, found := test[cell.name];found {
-					panic(fmt.Sprintf("Duplicate cell!! %d %d", cell.name, net.name))
-				} else {
-					test[cell.name] = cell
-				}
-			}
-		}
-		//TODO
 }
 
 func PrintInfo(pter *Partitioner) {
@@ -157,16 +145,6 @@ func (pter *Partitioner) InitialPartition(){
 			}
 			cell.moved = false //set to none moved.
 		}
-		//TODO
-		test := make(map[int]*Net)
-		for _, net := range cell.NetList {
-			if _, found := test[net.name];found {
-				panic("Duplicate!!")
-			} else {
-				test[net.name] = net
-			}
-		}
-		//TODO
 	}
 }
 
@@ -267,14 +245,10 @@ func (target *Cell) UpdateGain(pter *Partitioner) {
 		cellgain = 0
 		for _, net := range target.NetList {
 			if !target.leftside {
-				net.rightnum++
-				net.leftnum--
 				if net.leftnum == 0 { cellgain-- }
 				if net.rightnum == 1 { cellgain++ }
 
 			} else {
-				net.leftnum++
-				net.rightnum--
 				if net.rightnum == 0 { cellgain-- }
 				if net.leftnum == 1 { cellgain++ }
 			}
@@ -328,23 +302,27 @@ func (target *Cell) MoveCell(pter *Partitioner) {
 		if target.leftside {
 			delete (pter.leftpart, target.name)
 			pter.rightpart[target.name] = target
+			/*
 			for _, net := range target.NetList {
 				net.leftnum--
 				net.rightnum++
 			}
+			*/
 		} else {
 			delete (pter.rightpart, target.name)
 			pter.leftpart[target.name] = target
+			/*
 			for _, net := range target.NetList {
 				net.leftnum++
 				net.rightnum--
 			}
+			*/
 		}
 		target.leftside = !target.leftside
 		target.moved = true
 		//calculate gain.
 		target.UpdateGain(pter)
-		//TODO
+		//Update after moving cell(may increase time?)
 		for _, net := range target.NetList {
 			left := 0
 			right := 0
@@ -355,11 +333,9 @@ func (target *Cell) MoveCell(pter *Partitioner) {
 					right++
 				}
 			}
-			if net.leftnum != left || net.rightnum != right {
-				panic("Fuck")
-			}
+			net.leftnum = left
+			net.rightnum = right
 		}
-		//TODO
 	}
 }
 
@@ -371,6 +347,7 @@ func (pter *Partitioner) FMLoop() {
 		pter.currcut = 0
 		//TODO
 		for _, net := range pter.netslice {
+			/*
 			net.leftnum = 0
 			net.rightnum = 0
 			for _, cell := range net.CellList {
@@ -380,10 +357,12 @@ func (pter *Partitioner) FMLoop() {
 					net.rightnum++
 				}
 			}
+			*/
 			if net.leftnum != 0 && net.rightnum != 0 {
 				pter.currcut++
 			}
 		}
+		//TODO
 		PrintInfo(pter)
 		pter.prevcut = pter.currcut
 	}
@@ -402,6 +381,7 @@ func (pter *Partitioner) FMLoop() {
 	pter.currcut = 0
 	//TODO
 	for _, net := range pter.netslice {
+		/*
 		net.leftnum = 0
 		net.rightnum = 0
 		for _, cell := range net.CellList {
@@ -411,10 +391,12 @@ func (pter *Partitioner) FMLoop() {
 				net.rightnum++
 			}
 		}
+		*/
 		if net.leftnum != 0 && net.rightnum != 0 {
 			pter.currcut++
 		}
 	}
+	//TODO
 	PrintInfo(pter)
 	if pter.currcut < pter.prevcut {
 		pter.prevcut = pter.currcut
