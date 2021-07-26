@@ -3,34 +3,35 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"strings"
-	"strconv"
-	"sort"
+	"io/ioutil"
 	"os"
+	"sort"
+	"strconv"
+	"strings"
 )
 
-type Net struct{
-	name int
-	leftnum int
+type Net struct {
+	name     int
+	leftnum  int
 	rightnum int
 	CellList map[int]*Cell
 }
 
-type Cell struct{
-	name, gain int
-	moved, leftside bool
-	NetList map[int]*Net
+type Cell struct {
+	name, gain                  int
+	moved, leftside             bool
+	NetList                     map[int]*Net
 	prevcell, nextcell, endcell *Cell
 }
 
 type Partitioner struct {
 	iter, cellcount, maxgain, mingain, currcut, prevcut int
-	degree float64
-	netslice []*Net
-	leftpart map[int]*Cell
-	rightpart map[int]*Cell
-	cellmap map[int]*Cell
-	gainmap map[int]*Cell//bucketlist
+	degree                                              float64
+	netslice                                            []*Net
+	leftpart                                            map[int]*Cell
+	rightpart                                           map[int]*Cell
+	cellmap                                             map[int]*Cell
+	gainmap                                             map[int]*Cell //bucketlist
 }
 
 func (c *Cell) Reset() {
@@ -63,30 +64,57 @@ func LinesInFile(fileName string) []string {
 	return result
 }
 
-func LinesToGraph(lines []string, pter *Partitioner){
+func OutputFile(name string, pter *Partitioner) {
+	content := fmt.Sprintf("Cutsize = %d", pter.currcut)
+	g1 := fmt.Sprintf("G1 %d\n", len(pter.leftpart))
+	for _, cell := range pter.leftpart {
+		g1 = fmt.Sprintf("%sc%d ", g1, cell.name)
+	}
+	g1 = fmt.Sprintf("%s;", g1)
+	g2 := fmt.Sprintf("G2 %d\n", len(pter.rightpart))
+	for _, cell := range pter.rightpart {
+		g2 = fmt.Sprintf("%sc%d ", g2, cell.name)
+	}
+	g2 = fmt.Sprintf("%s;", g2)
+	content = fmt.Sprintf("%s\n%s\n%s\n", content, g1, g2)
+	word := []byte(content)
+	// write the whole body at once
+	err := ioutil.WriteFile(name, word, 0777)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func LinesToGraph(lines []string, pter *Partitioner) {
 	var (
 		netid, cellid int
-		err error
-		cellptr *Cell
-		netptr *Net
+		err           error
+		cellptr       *Cell
+		netptr        *Net
 	)
 	for iter, line := range lines {
 		netinfo := strings.Fields(line)
 		if iter == 0 {
 			pter.degree, err = strconv.ParseFloat(netinfo[0], 64)
-			if err != nil {fmt.Println(netinfo)}
-			if pter.degree > 0.5 { pter.degree = 1 - pter.degree }
+			if err != nil {
+				fmt.Println(netinfo)
+			}
+			if pter.degree > 0.5 {
+				pter.degree = 1 - pter.degree
+			}
 		}
 		for _, word := range netinfo {
 			switch word[0] {
 			case 'N':
 				clist := make(map[int]*Cell)
-				netptr = &Net{name:netid, leftnum:0, rightnum:0, CellList:clist}
+				netptr = &Net{name: netid, leftnum: 0, rightnum: 0, CellList: clist}
 				pter.netslice = append(pter.netslice, netptr)
 				netid++
 			case 'c':
-				cellid, err = strconv.Atoi(strings.Trim(word,"c"))
-				if err != nil {fmt.Println(word)}
+				cellid, err = strconv.Atoi(strings.Trim(word, "c"))
+				if err != nil {
+					fmt.Println(word)
+				}
 				if curcell, ok := pter.cellmap[cellid]; ok {
 					curcell.NetList[netptr.name] = netptr
 					pter.cellmap[cellid] = curcell
@@ -94,12 +122,12 @@ func LinesToGraph(lines []string, pter *Partitioner){
 					//Initial a cell
 					nlist := make(map[int]*Net)
 					nlist[netptr.name] = netptr
-					cellptr = &Cell{name:cellid, NetList:nlist, moved:false, gain:0}
+					cellptr = &Cell{name: cellid, NetList: nlist, moved: false, gain: 0}
 					pter.cellmap[cellid] = cellptr
 					pter.cellcount++
 				}
 				pter.netslice[len(pter.netslice)-1].CellList[cellptr.name] = cellptr
-			default :
+			default:
 			}
 		}
 	}
@@ -117,10 +145,10 @@ func PrintInfo(pter *Partitioner) {
 	fmt.Println("	partition status:", len(pter.leftpart), len(pter.rightpart))
 }
 
-func (pter *Partitioner) InitialPartition(){
+func (pter *Partitioner) InitialPartition() {
 	var cell_by_netnum []*Cell
 	for _, cell := range pter.cellmap {
-		cell_by_netnum =  append(cell_by_netnum, cell)
+		cell_by_netnum = append(cell_by_netnum, cell)
 	}
 	sort.Slice(cell_by_netnum, func(i, j int) bool {
 		return len(cell_by_netnum[i].NetList) < len(cell_by_netnum[j].NetList)
@@ -128,20 +156,20 @@ func (pter *Partitioner) InitialPartition(){
 	for _, cell := range cell_by_netnum {
 		_, isleft := pter.leftpart[cell.name]
 		_, isright := pter.rightpart[cell.name]
-		if !(isleft||isright) {
+		if !(isleft || isright) {
 			if len(pter.leftpart)+1 <= pter.cellcount/2 {
 				pter.leftpart[cell.name] = cell
 				cell.leftside = true //update cell position
-				//update net info 
-				for _, net := range cell.NetList{
-					net.leftnum ++
+				//update net info
+				for _, net := range cell.NetList {
+					net.leftnum++
 				}
 			} else {
 				pter.rightpart[cell.name] = cell
 				cell.leftside = false //update cell position
-				//update net info 
-				for _, net := range cell.NetList{
-					net.rightnum ++
+				//update net info
+				for _, net := range cell.NetList {
+					net.rightnum++
 				}
 			}
 			cell.moved = false //set to none moved.
@@ -149,7 +177,7 @@ func (pter *Partitioner) InitialPartition(){
 	}
 }
 
-func (pter *Partitioner) GetGain(){
+func (pter *Partitioner) GetGain() {
 	pter.maxgain = 0
 	pter.mingain = 0
 	//Calculate gain of each cell
@@ -159,11 +187,19 @@ func (pter *Partitioner) GetGain(){
 			//no cell on the other side -> gain += -1
 			//one self on this side -> gain += 1
 			if cell.leftside {
-				if net.rightnum == 0 { cellgain-- }
-				if net.leftnum == 1 { cellgain++ }
+				if net.rightnum == 0 {
+					cellgain--
+				}
+				if net.leftnum == 1 {
+					cellgain++
+				}
 			} else {
-				if net.leftnum == 0 { cellgain-- }
-				if net.rightnum == 1 { cellgain++ }
+				if net.leftnum == 0 {
+					cellgain--
+				}
+				if net.rightnum == 1 {
+					cellgain++
+				}
 			}
 		}
 		cell.gain = cellgain
@@ -177,8 +213,8 @@ func (pter *Partitioner) GetGain(){
 	}
 }
 
-func (pter *Partitioner) GetBucket(){
-	pter.gainmap = make(map[int]*Cell)//Reset map
+func (pter *Partitioner) GetBucket() {
+	pter.gainmap = make(map[int]*Cell) //Reset map
 	for _, cell := range pter.cellmap {
 		cell.Reset()
 		cellgain := cell.gain
@@ -202,7 +238,7 @@ func (target *Cell) RemoveFromBucket(pter *Partitioner) {
 		//Only member in this gain bucket.
 		if target.nextcell == nil {
 			target.endcell = nil
-			delete (pter.gainmap,target.gain)
+			delete(pter.gainmap, target.gain)
 			return
 		}
 		pter.gainmap[index] = target.nextcell
@@ -246,19 +282,29 @@ func (target *Cell) UpdateGain(pter *Partitioner) {
 		cellgain = 0
 		for _, net := range target.NetList {
 			if !target.leftside {
-				if net.leftnum == 0 { cellgain-- }
-				if net.rightnum == 1 { cellgain++ }
+				if net.leftnum == 0 {
+					cellgain--
+				}
+				if net.rightnum == 1 {
+					cellgain++
+				}
 
 			} else {
-				if net.rightnum == 0 { cellgain-- }
-				if net.leftnum == 1 { cellgain++ }
+				if net.rightnum == 0 {
+					cellgain--
+				}
+				if net.leftnum == 1 {
+					cellgain++
+				}
 			}
 		}
 		target.gain = cellgain
 		//Update gain of other realated cell.
 		for _, net := range target.NetList {
 			for _, cell := range net.CellList {
-				if !cell.moved { cell.UpdateGain(pter) }
+				if !cell.moved {
+					cell.UpdateGain(pter)
+				}
 			}
 		}
 	} else {
@@ -267,15 +313,23 @@ func (target *Cell) UpdateGain(pter *Partitioner) {
 			//no cell on the other side -> gain += -1
 			//one self on this side -> gain += 1
 			if target.leftside {
-				if net.rightnum == 0 { cellgain-- }
-				if net.leftnum == 1 { cellgain++ }
+				if net.rightnum == 0 {
+					cellgain--
+				}
+				if net.leftnum == 1 {
+					cellgain++
+				}
 			} else {
-				if net.leftnum == 0 { cellgain-- }
-				if net.rightnum == 1 { cellgain++ }
+				if net.leftnum == 0 {
+					cellgain--
+				}
+				if net.rightnum == 1 {
+					cellgain++
+				}
 			}
 		}
 		if target.gain != cellgain {
-			target.RemoveFromBucket(pter)//Need to be done before update gain!
+			target.RemoveFromBucket(pter) //Need to be done before update gain!
 			target.gain = cellgain
 			target.AppendToBucket(pter)
 		}
@@ -292,31 +346,31 @@ func (target *Cell) UpdateGain(pter *Partitioner) {
 func (target *Cell) MoveCell(pter *Partitioner) {
 	var move bool
 	if target.leftside {
-		move = len(pter.leftpart) - 1 > int(float64(pter.cellcount) * pter.degree)
+		move = len(pter.leftpart)-1 > int(float64(pter.cellcount)*pter.degree)
 	} else {
-		move = len(pter.rightpart) - 1 > int(float64(pter.cellcount) * pter.degree)
+		move = len(pter.rightpart)-1 > int(float64(pter.cellcount)*pter.degree)
 	}
 	if move {
 		//Remove operation need to be done before update gain!
 		target.RemoveFromBucket(pter)
 		//move cell to other side.
 		if target.leftside {
-			delete (pter.leftpart, target.name)
+			delete(pter.leftpart, target.name)
 			pter.rightpart[target.name] = target
 			/*
-			for _, net := range target.NetList {
-				net.leftnum--
-				net.rightnum++
-			}
+				for _, net := range target.NetList {
+					net.leftnum--
+					net.rightnum++
+				}
 			*/
 		} else {
-			delete (pter.rightpart, target.name)
+			delete(pter.rightpart, target.name)
 			pter.leftpart[target.name] = target
 			/*
-			for _, net := range target.NetList {
-				net.leftnum++
-				net.rightnum--
-			}
+				for _, net := range target.NetList {
+					net.leftnum++
+					net.rightnum--
+				}
 			*/
 		}
 		target.leftside = !target.leftside
@@ -381,7 +435,8 @@ func (pter *Partitioner) FMLoop() {
 func main() {
 	pter := NewPartitioner()
 	// Loop over lines in file.
-	lines := LinesInFile(`input_data/input_0.dat`)
+	lines := LinesInFile(`input_data/input_5.dat`)
 	LinesToGraph(lines, pter)
 	pter.FMLoop()
+	OutputFile("result_5.dat", pter)
 }
