@@ -85,13 +85,15 @@ func OutputFile(name string, pter *Partitioner) {
 	}
 }
 
-func LinesToGraph(lines []string, pter *Partitioner) {
+func LinesToGraph(name string, pter *Partitioner) {
 	var (
 		netid, cellid int
 		err           error
 		cellptr       *Cell
 		netptr        *Net
 	)
+	//parse to lines
+	lines := LinesInFile(name)
 	for iter, line := range lines {
 		netinfo := strings.Fields(line)
 		if iter == 0 {
@@ -394,7 +396,7 @@ func (target *Cell) MoveCell(pter *Partitioner) {
 	}
 }
 
-func (pter *Partitioner) PartitionSet() {
+func (pter *Partitioner) SetPartition() {
 	pter.iter++
 	pter.GetGain()
 	pter.GetBucket()
@@ -410,7 +412,7 @@ func (pter *Partitioner) PartitionSet() {
 func (pter *Partitioner) FMLoop() {
 	if len(pter.gainmap) == 0 {
 		pter.InitialPartition()
-		pter.PartitionSet()
+		pter.SetPartition()
 		pter.prevcut = pter.currcut
 	}
 	for i := pter.maxgain; i > 0; i-- {
@@ -424,7 +426,7 @@ func (pter *Partitioner) FMLoop() {
 		}
 	}
 	//prepare for next loop
-	pter.PartitionSet()
+	pter.SetPartition()
 	if pter.currcut < pter.prevcut {
 		pter.prevcut = pter.currcut
 		pter.FMLoop()
@@ -435,8 +437,7 @@ func (pter *Partitioner) FMLoop() {
 func main() {
 	pter := NewPartitioner()
 	// Loop over lines in file.
-	lines := LinesInFile(`input_data/input_5.dat`)
-	LinesToGraph(lines, pter)
+	LinesToGraph("input_data/input_5.dat", pter)
 	pter.FMLoop()
-	OutputFile("result_5.dat", pter)
+	OutputFile("~/result_5.dat", pter)
 }
